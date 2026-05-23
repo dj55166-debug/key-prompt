@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { Elements } from '@stripe/react-stripe-js'
+import { stripePromise } from '../lib/stripe'
+import { supabase } from '../lib/supabase'
 
 const prompt = {
   id: 1,
   title: "Ultimate Cold Email Generator",
-  description: "Craft high-converting cold emails for any niche using proven psychological triggers and deep personalization techniques. This prompt has been tested across 200+ industries with an average reply rate of 34%.",
+  description: "Craft high-converting cold emails for any niche using proven psychological triggers and personalization. This prompt has been tested across 200+ industries with an average reply rate of 34%.",
   content: `You are an expert cold email copywriter with 10 years of experience. Write a cold email for the following context:
 
 Industry: [INDUSTRY]
@@ -65,13 +68,82 @@ function Avatar({ initials, color = "violet" }) {
   );
 }
 
+function CheckoutForm({ onSuccess, onCancel }) {
+  const [loading, setLoading] = useState(false);
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvc, setCvc] = useState('');
+
+  const handlePay = async () => {
+    setLoading(true);
+    // Simulate payment for now
+    setTimeout(() => {
+      setLoading(false);
+      onSuccess();
+    }, 2000);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="text-xs font-semibold text-gray-600 block mb-1.5">Card number</label>
+        <input
+          value={cardNumber}
+          onChange={e => setCardNumber(e.target.value)}
+          placeholder="4242 4242 4242 4242"
+          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1.5">Expiry</label>
+          <input
+            value={expiry}
+            onChange={e => setExpiry(e.target.value)}
+            placeholder="MM / YY"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-gray-600 block mb-1.5">CVC</label>
+          <input
+            value={cvc}
+            onChange={e => setCvc(e.target.value)}
+            placeholder="123"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handlePay}
+        disabled={loading}
+        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <>
+            <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Processing...
+          </>
+        ) : `Pay $${prompt.price}`}
+      </button>
+      <button onClick={onCancel} className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors">
+        Cancel
+      </button>
+      <p className="text-center text-xs text-gray-400">Secured by Stripe · Instant access after payment</p>
+    </div>
+  );
+}
+
 export default function PromptDetail() {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [purchased, setPurchased] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [comment, setComment] = useState("");
-  const [showFull, setShowFull] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   const handleCopy = () => {
@@ -79,14 +151,10 @@ export default function PromptDetail() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleBuy = () => setPurchased(true);
-
   const previewContent = prompt.content.slice(0, 120) + "...";
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-
-      {/* Top nav */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-30">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
           <button className="text-gray-400 hover:text-gray-700 transition-colors p-1 -ml-1">
@@ -101,16 +169,9 @@ export default function PromptDetail() {
             <span className="font-bold text-sm text-gray-900">Key Prompt</span>
           </div>
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setSaved(!saved)}
-              className={`p-2 rounded-xl transition-all ${saved ? "bg-violet-50 text-violet-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}>
+            <button onClick={() => setSaved(!saved)} className={`p-2 rounded-xl transition-all ${saved ? "bg-violet-50 text-violet-600" : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"}`}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-              </svg>
-            </button>
-            <button className="p-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
               </svg>
             </button>
           </div>
@@ -118,23 +179,16 @@ export default function PromptDetail() {
       </nav>
 
       <div className="max-w-2xl mx-auto px-4 py-5">
-
-        {/* Header card */}
         <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden mb-4">
           <div className="h-1.5 bg-gradient-to-r from-violet-500 via-indigo-500 to-blue-500" />
           <div className="p-5">
             <div className="flex gap-2 mb-3 flex-wrap">
               <span className="text-xs font-semibold bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full">{prompt.type}</span>
               <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{prompt.category}</span>
-              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">
-                {prompt.model}
-              </span>
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full">{prompt.model}</span>
             </div>
-
             <h1 className="text-xl font-black text-gray-900 mb-2 leading-tight">{prompt.title}</h1>
             <p className="text-sm text-gray-500 leading-relaxed mb-4">{prompt.description}</p>
-
-            {/* Stats row */}
             <div className="flex items-center gap-4 text-xs text-gray-400 mb-4">
               <span className="flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
@@ -154,16 +208,9 @@ export default function PromptDetail() {
                 <span>({prompt.reviews})</span>
               </div>
             </div>
-
-            {/* Action buttons */}
             <div className="flex gap-2">
-              <button
-                onClick={() => setLiked(!liked)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  liked
-                    ? "bg-rose-50 border-rose-200 text-rose-600"
-                    : "bg-gray-50 border-gray-200 text-gray-500 hover:border-rose-200 hover:text-rose-500"
-                }`}>
+              <button onClick={() => setLiked(!liked)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${liked ? "bg-rose-50 border-rose-200 text-rose-600" : "bg-gray-50 border-gray-200 text-gray-500 hover:border-rose-200 hover:text-rose-500"}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                 </svg>
@@ -179,22 +226,17 @@ export default function PromptDetail() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 bg-white border border-gray-100 p-1 rounded-xl mb-4">
           {["overview", "prompt", "comments"].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
-                activeTab === tab ? "bg-violet-600 text-white" : "text-gray-500 hover:text-gray-700"
-              }`}>
+              className={`flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${activeTab === tab ? "bg-violet-600 text-white" : "text-gray-500 hover:text-gray-700"}`}>
               {tab} {tab === "comments" && `(${prompt.comments.length})`}
             </button>
           ))}
         </div>
 
-        {/* Tab: Overview */}
         {activeTab === "overview" && (
           <div className="space-y-4">
-            {/* Creator card */}
             <div className="bg-white border border-gray-100 rounded-2xl p-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Creator</p>
               <div className="flex items-center justify-between">
@@ -216,8 +258,6 @@ export default function PromptDetail() {
                 Follow {prompt.author.name.split(" ")[0]}
               </button>
             </div>
-
-            {/* Tags */}
             <div className="bg-white border border-gray-100 rounded-2xl p-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Tags</p>
               <div className="flex flex-wrap gap-2">
@@ -226,8 +266,6 @@ export default function PromptDetail() {
                 ))}
               </div>
             </div>
-
-            {/* Info grid */}
             <div className="bg-white border border-gray-100 rounded-2xl p-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Details</p>
               <div className="grid grid-cols-2 gap-3">
@@ -247,7 +285,6 @@ export default function PromptDetail() {
           </div>
         )}
 
-        {/* Tab: Prompt */}
         {activeTab === "prompt" && (
           <div className="space-y-4">
             <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
@@ -255,25 +292,15 @@ export default function PromptDetail() {
                 <p className="text-xs font-semibold text-gray-700">Prompt Content</p>
                 {purchased ? (
                   <button onClick={handleCopy}
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${
-                      copied ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700"
-                    }`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
-                    </svg>
-                    {copied ? "Copied!" : "Copy"}
+                    className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${copied ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700"}`}>
+                    {copied ? "Copied ✓" : "Copy"}
                   </button>
                 ) : (
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                    Locked
-                  </span>
+                  <span className="text-xs text-gray-400 flex items-center gap-1">🔒 Locked</span>
                 )}
               </div>
               <div className="p-4 relative">
-                <pre className={`text-xs text-gray-600 leading-relaxed whitespace-pre-wrap font-mono ${!purchased ? "select-none" : ""}`}>
+                <pre className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap font-mono">
                   {purchased ? prompt.content : previewContent}
                 </pre>
                 {!purchased && (
@@ -284,27 +311,39 @@ export default function PromptDetail() {
               </div>
             </div>
 
-            {/* Buy / already purchased */}
             {!purchased ? (
               <div className="bg-white border border-gray-100 rounded-2xl p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-2xl font-black text-gray-900">${prompt.price}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">One-time purchase · instant access</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-1 justify-end">
-                      <StarRating rating={prompt.rating} />
-                      <span className="text-xs font-semibold text-gray-700">{prompt.rating}</span>
+                {!showCheckout ? (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <p className="text-2xl font-black text-gray-900">${prompt.price}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">One-time purchase · instant access</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <StarRating rating={prompt.rating} />
+                          <span className="text-xs font-semibold text-gray-700">{prompt.rating}</span>
+                        </div>
+                        <p className="text-xs text-gray-400">{prompt.reviews} reviews</p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-400">{prompt.reviews} reviews</p>
+                    <button
+                      onClick={() => setShowCheckout(true)}
+                      className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl hover:opacity-90 active:scale-95 transition-all text-sm">
+                      Buy for ${prompt.price}
+                    </button>
+                    <p className="text-center text-xs text-gray-400 mt-2">Secure payment via Stripe · Instant access</p>
+                  </>
+                ) : (
+                  <div>
+                    <p className="text-sm font-bold text-gray-800 mb-4">Complete your purchase</p>
+                    <CheckoutForm
+                      onSuccess={() => { setShowCheckout(false); setPurchased(true); }}
+                      onCancel={() => setShowCheckout(false)}
+                    />
                   </div>
-                </div>
-                <button onClick={handleBuy}
-                  className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl hover:opacity-90 active:scale-95 transition-all text-sm">
-                  Buy for ${prompt.price}
-                </button>
-                <p className="text-center text-xs text-gray-400 mt-2">Secure payment via Stripe · Instant access</p>
+                )}
               </div>
             ) : (
               <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
@@ -322,7 +361,6 @@ export default function PromptDetail() {
           </div>
         )}
 
-        {/* Tab: Comments */}
         {activeTab === "comments" && (
           <div className="space-y-3">
             {prompt.comments.map(c => (
@@ -335,18 +373,10 @@ export default function PromptDetail() {
                       <p className="text-[10px] text-gray-400 flex-shrink-0">{c.time}</p>
                     </div>
                     <p className="text-xs text-gray-600 leading-relaxed">{c.text}</p>
-                    <button className="mt-2 flex items-center gap-1 text-[10px] text-gray-400 hover:text-rose-500 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-                      </svg>
-                      {c.likes}
-                    </button>
                   </div>
                 </div>
               </div>
             ))}
-
-            {/* Add comment */}
             <div className="bg-white border border-gray-100 rounded-2xl p-4">
               <p className="text-xs font-semibold text-gray-700 mb-3">Add a comment</p>
               <textarea
@@ -364,7 +394,6 @@ export default function PromptDetail() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   );
