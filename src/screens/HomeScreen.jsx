@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 const categories = [
   "All", "AI", "Business", "Marketing", "Design", "Development",
@@ -6,63 +7,6 @@ const categories = [
 ];
 
 const tabs = ["Prompts", "AI Images", "Automations"];
-
-const mockPrompts = [
-  {
-    id: 1, type: "Prompt",
-    title: "Ultimate Cold Email Generator",
-    description: "Craft high-converting cold emails for any niche using proven psychological triggers and personalization.",
-    category: "Sales", author: "Alex R.", avatar: "AR",
-    likes: 1240, uses: 8430, price: 0, tags: ["email", "sales", "copywriting"],
-    gradient: "from-violet-500 to-indigo-600",
-    avatarBg: "bg-violet-100 text-violet-700"
-  },
-  {
-    id: 2, type: "Automation",
-    title: "LinkedIn Content Machine",
-    description: "Generate a full month of LinkedIn posts from a single topic. Hooks, carousels, and thought leadership included.",
-    category: "Marketing", author: "Sara M.", avatar: "SM",
-    likes: 892, uses: 3210, price: 4.99, tags: ["linkedin", "content", "social"],
-    gradient: "from-blue-500 to-cyan-500",
-    avatarBg: "bg-blue-100 text-blue-700"
-  },
-  {
-    id: 3, type: "Prompt",
-    title: "AI Business Plan Builder",
-    description: "Generate a full investor-ready business plan from just a one-line idea. Includes market analysis and financials.",
-    category: "Business", author: "Karim D.", avatar: "KD",
-    likes: 2100, uses: 12800, price: 9.99, tags: ["startup", "business", "plan"],
-    gradient: "from-amber-400 to-orange-500",
-    avatarBg: "bg-amber-100 text-amber-700"
-  },
-  {
-    id: 4, type: "Prompt",
-    title: "Code Review Assistant",
-    description: "Paste any code and get a detailed review with bugs, security issues, performance tips, and refactoring suggestions.",
-    category: "Development", author: "Lena K.", avatar: "LK",
-    likes: 543, uses: 4900, price: 0, tags: ["code", "review", "dev"],
-    gradient: "from-emerald-500 to-teal-500",
-    avatarBg: "bg-emerald-100 text-emerald-700"
-  },
-  {
-    id: 5, type: "AI Images",
-    title: "Cinematic Product Shot",
-    description: "Turn any product photo into a professional studio-quality cinematic shot. Works with Midjourney and DALL-E 3.",
-    category: "Design", author: "Nina B.", avatar: "NB",
-    likes: 3400, uses: 21000, price: 2.99, tags: ["image", "product", "midjourney"],
-    gradient: "from-pink-500 to-rose-500",
-    avatarBg: "bg-pink-100 text-pink-700"
-  },
-  {
-    id: 6, type: "Prompt",
-    title: "SEO Article Dominator",
-    description: "Create fully optimized, human-sounding articles that rank on Google. Includes keyword density, meta, and internal linking.",
-    category: "Marketing", author: "Tom H.", avatar: "TH",
-    likes: 678, uses: 5600, price: 0, tags: ["seo", "writing", "marketing"],
-    gradient: "from-cyan-500 to-blue-500",
-    avatarBg: "bg-cyan-100 text-cyan-700"
-  },
-];
 
 function Badge({ type }) {
   const styles = {
@@ -83,10 +27,21 @@ function PriceTag({ price }) {
     : <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">${price}</span>;
 }
 
-function PromptCard({ prompt, liked, onLike, onSave, saved }) {
+const gradients = [
+  "from-violet-500 to-indigo-600",
+  "from-blue-500 to-cyan-500",
+  "from-amber-400 to-orange-500",
+  "from-emerald-500 to-teal-500",
+  "from-pink-500 to-rose-500",
+  "from-cyan-500 to-blue-500",
+];
+
+function PromptCard({ prompt, liked, onLike, onSave, saved, index }) {
+  const gradient = gradients[index % gradients.length];
+  const initials = prompt.author?.username?.slice(0, 2).toUpperCase() || "KP";
   return (
     <div className="group bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
-      <div className={`h-1.5 bg-gradient-to-r ${prompt.gradient}`} />
+      <div className={`h-1.5 bg-gradient-to-r ${gradient}`} />
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
@@ -107,23 +62,23 @@ function PromptCard({ prompt, liked, onLike, onSave, saved }) {
           <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{prompt.description}</p>
         </div>
         <div className="flex flex-wrap gap-1">
-          {prompt.tags.map(tag => (
+          {(prompt.tags || []).map(tag => (
             <span key={tag} className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">#{tag}</span>
           ))}
         </div>
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
           <div className="flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center ${prompt.avatarBg}`}>
-              {prompt.avatar}
+            <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold flex items-center justify-center">
+              {initials}
             </div>
-            <span className="text-xs text-gray-500">{prompt.author}</span>
+            <span className="text-xs text-gray-500">{prompt.author?.username || "Creator"}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-gray-400 flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              {prompt.uses >= 1000 ? `${(prompt.uses/1000).toFixed(1)}k` : prompt.uses}
+              {prompt.uses_count >= 1000 ? `${(prompt.uses_count/1000).toFixed(1)}k` : prompt.uses_count || 0}
             </span>
             <button
               onClick={() => onLike(prompt.id)}
@@ -132,7 +87,7 @@ function PromptCard({ prompt, liked, onLike, onSave, saved }) {
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={liked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
-              {liked ? prompt.likes + 1 : prompt.likes}
+              {liked ? (prompt.likes_count || 0) + 1 : (prompt.likes_count || 0)}
             </button>
           </div>
         </div>
@@ -148,6 +103,32 @@ export default function HomeScreen() {
   const [likedIds, setLikedIds] = useState(new Set());
   const [savedIds, setSavedIds] = useState(new Set());
   const [showSearch, setShowSearch] = useState(false);
+  const [prompts, setPrompts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPrompts();
+  }, [activeTab, activeCategory]);
+
+  const fetchPrompts = async () => {
+    setLoading(true);
+    let query = supabase
+      .from("prompts")
+      .select("*, author:profiles(id, username, full_name, avatar_url)")
+      .eq("is_published", true)
+      .order("created_at", { ascending: false });
+
+    if (activeTab === "Prompts") query = query.eq("type", "Prompt");
+    else if (activeTab === "AI Images") query = query.eq("type", "AI Images");
+    else if (activeTab === "Automations") query = query.eq("type", "Automation");
+
+    if (activeCategory !== "All") query = query.eq("category", activeCategory);
+
+    const { data, error } = await query;
+    if (error) console.error(error);
+    setPrompts(data || []);
+    setLoading(false);
+  };
 
   const toggleLike = (id) => {
     setLikedIds(prev => {
@@ -165,14 +146,10 @@ export default function HomeScreen() {
     });
   };
 
-  const filtered = mockPrompts.filter(p => {
-    const matchTab = activeTab === "Prompts" ? p.type === "Prompt"
-      : activeTab === "AI Images" ? p.type === "AI Images"
-      : p.type === "Automation";
-    const matchCat = activeCategory === "All" || p.category === activeCategory;
-    const matchSearch = !search || p.title.toLowerCase().includes(search.toLowerCase()) || p.description.toLowerCase().includes(search.toLowerCase());
-    return matchTab && matchCat && matchSearch;
-  });
+  const filtered = prompts.filter(p =>
+    !search || p.title.toLowerCase().includes(search.toLowerCase()) ||
+    p.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -261,23 +238,27 @@ export default function HomeScreen() {
           </select>
         </div>
 
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin w-8 h-8 border-4 border-violet-600 border-t-transparent rounded-full" />
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(p => (
-              <PromptCard key={p.id} prompt={p} liked={likedIds.has(p.id)} saved={savedIds.has(p.id)} onLike={toggleLike} onSave={toggleSave} />
+            {filtered.map((p, i) => (
+              <PromptCard key={p.id} prompt={p} index={i} liked={likedIds.has(p.id)} saved={savedIds.has(p.id)} onLike={toggleLike} onSave={toggleSave} />
             ))}
           </div>
         ) : (
           <div className="text-center py-16">
             <div className="text-4xl mb-3">🔍</div>
-            <p className="text-gray-400 text-sm">No prompts found for this filter.</p>
+            <p className="text-gray-400 text-sm">No prompts found.</p>
             <button onClick={() => { setActiveCategory("All"); setSearch(""); }} className="mt-3 text-violet-600 text-sm font-medium hover:underline">
               Clear filters
             </button>
           </div>
         )}
 
-        {filtered.length > 0 && (
+        {filtered.length > 0 && !loading && (
           <div className="text-center mt-8 mb-4">
             <button className="border border-gray-200 text-gray-600 text-sm font-medium px-6 py-2.5 rounded-xl hover:bg-gray-50 hover:border-violet-300 hover:text-violet-600 transition-all">
               Load more prompts
