@@ -48,7 +48,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomeScreen />} />
+        <Route path="/" element={<HomeScreen user={user} />} />
         <Route path="/search" element={<SearchResults />} />
         <Route path="/prompt/:id" element={<PromptDetail />} />
         <Route path="/creator/:username" element={<CreatorProfile />} />
