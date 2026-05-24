@@ -11,14 +11,15 @@ function Badge({ type }) {
 }
 
 function PriceTag({ price }) {
-  return price === 0
+  return parseFloat(price) === 0
     ? <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">Free</span>
-    : <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">${price}</span>;
+    : <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">${parseFloat(price).toFixed(2)}</span>;
 }
 
 function PromptCard({ prompt, liked, onLike, onSave, saved, index }) {
   const gradient = gradients[index % gradients.length];
-  const initials = prompt.author?.username?.slice(0, 2).toUpperCase() || "KP";
+  const username = prompt.author?.username || prompt.author?.full_name || "Creator";
+  const initials = username.slice(0, 2).toUpperCase();
   return (
     <div className="group bg-white border border-gray-100 rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col">
       <div className={`h-1.5 bg-gradient-to-r ${gradient}`} />
@@ -26,7 +27,7 @@ function PromptCard({ prompt, liked, onLike, onSave, saved, index }) {
         <div className="flex items-start justify-between gap-2">
           <div className="flex gap-1.5 flex-wrap">
             <Badge type={prompt.type} />
-            <PriceTag price={parseFloat(prompt.price) || 0} />
+            <PriceTag price={prompt.price} />
           </div>
           <button onClick={() => onSave(prompt.id)} className={`text-gray-300 hover:text-gray-500 transition-colors flex-shrink-0 ${saved ? "text-gray-600" : ""}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
@@ -46,7 +47,7 @@ function PromptCard({ prompt, liked, onLike, onSave, saved, index }) {
         <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-[10px] font-bold flex items-center justify-center">{initials}</div>
-            <span className="text-xs text-gray-500">{prompt.author?.username || "Creator"}</span>
+            <span className="text-xs text-gray-500">{username}</span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[11px] text-gray-400 flex items-center gap-1">
@@ -84,16 +85,22 @@ export default function HomeScreen() {
   const fetchPrompts = async () => {
     setLoading(true);
     setError(null);
-    const { data, error: err } = await supabase.from("prompts").select("*").order("created_at", { ascending: false });
-    if (err) { console.error("Error:", err); setError(err.message); }
-    else { console.log("Prompts loaded:", data); setPrompts(data || []); }
+    const { data, error: err } = await supabase
+      .from("prompts")
+      .select("*, author:profiles(id, username, full_name)")
+      .order("created_at", { ascending: false });
+    if (err) { setError(err.message); }
+    else { setPrompts(data || []); }
     setLoading(false);
   };
 
   const toggleLike = (id) => { setLikedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
   const toggleSave = (id) => { setSavedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; }); };
 
-  const filtered = prompts.filter(p => (!search || p.title.toLowerCase().includes(search.toLowerCase())) && (activeCategory === "All" || p.category === activeCategory));
+  const filtered = prompts.filter(p =>
+    (!search || p.title.toLowerCase().includes(search.toLowerCase())) &&
+    (activeCategory === "All" || p.category === activeCategory)
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
@@ -155,6 +162,11 @@ export default function HomeScreen() {
 
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-gray-400"><span className="font-semibold text-gray-700">{filtered.length}</span> prompts found</p>
+          <select className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 outline-none">
+            <option>Newest</option>
+            <option>Most used</option>
+            <option>Price: Low</option>
+          </select>
         </div>
 
         {error && (
