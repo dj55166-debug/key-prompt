@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 
@@ -38,7 +39,12 @@ function InputField({ label, type = 'text', placeholder, value, onChange, icon }
 
 export default function AuthScreen() {
   const { t } = useTranslation()
-  const [mode, setMode] = useState('login')
+  const [searchParams] = useSearchParams()
+  const [mode, setMode] = useState(
+    searchParams.get('mode') === 'signup' ? 'signup' :
+    searchParams.get('mode') === 'forgot' ? 'forgot' :
+    'login'
+  )
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)

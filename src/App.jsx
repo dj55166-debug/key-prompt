@@ -11,6 +11,7 @@ import MyLibrary from './screens/MyLibrary'
 import SearchResults from './screens/SearchResults'
 import PricingScreen from './screens/PricingScreen'
 import ResetPassword from './screens/ResetPassword'
+import NotFound from './screens/NotFound'
 
 function PrivateRoute({ children, user }) {
   return user ? children : <Navigate to="/login" replace />
@@ -91,7 +92,21 @@ export default function App() {
           }
         />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Route aliases — common URL variants */}
+        <Route path="/sign-in" element={<Navigate to="/login" replace />} />
+        <Route path="/signin" element={<Navigate to="/login" replace />} />
+        <Route path="/sign-up" element={<Navigate to="/login?mode=signup" replace />} />
+        <Route path="/signup" element={<Navigate to="/login?mode=signup" replace />} />
+        <Route path="/register" element={<Navigate to="/login?mode=signup" replace />} />
+        <Route path="/forgot-password" element={<Navigate to="/login?mode=forgot" replace />} />
+        <Route path="/create" element={
+          <PrivateRoute user={user}>
+            <SubmitPromptForm user={user} />
+          </PrivateRoute>
+        } />
+
+        {/* 404 — must be last */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   )
