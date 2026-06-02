@@ -51,8 +51,8 @@ export default function CheckoutForm({ prompt, user, onSuccess }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
       {error && (
-        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
-          <p className="text-xs text-rose-600">{error}</p>
+        <div className="bg-rose-900/30 border border-rose-700/50 rounded-xl p-3">
+          <p className="text-xs text-rose-400">{error}</p>
         </div>
       )}
       <button
