@@ -6,9 +6,10 @@ import { supabase } from '../lib/supabase'
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
+// Hardcoded fallbacks guard against BOM-corrupted env vars baked into the Vercel build
 const PRICE_IDS = {
-  monthly: import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID || '',
-  yearly: import.meta.env.VITE_STRIPE_PRO_YEARLY_PRICE_ID || '',
+  monthly: (import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID || 'price_1TdIHbRLiJMqcyKZAI2FO6BN').replace(/^﻿/, ''),
+  yearly:  (import.meta.env.VITE_STRIPE_PRO_YEARLY_PRICE_ID  || 'price_1TdINXRLiJMqcyKZdplVnihJ').replace(/^﻿/, ''),
 }
 
 export default function PricingScreen({ user }) {
@@ -33,10 +34,7 @@ export default function PricingScreen({ user }) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { navigate('/login'); return }
 
-      const isYearly = billing === 'yearly'
-      const priceId = isYearly
-        ? import.meta.env.VITE_STRIPE_PRO_YEARLY_PRICE_ID
-        : import.meta.env.VITE_STRIPE_PRO_MONTHLY_PRICE_ID
+      const priceId = PRICE_IDS[billing]
       if (!priceId) throw new Error('Price ID not configured')
 
       const token = session.access_token || supabaseKey
