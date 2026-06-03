@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
@@ -61,7 +61,9 @@ function TagInput({ tags, onChange }) {
 
 const VIDEO_TYPES = [
   { id: 'AI Video', label: 'AI Video Prompt', icon: '🎬', desc: 'A cinematic or creative video prompt for Veo 3, Kling, Runway, etc.' },
-  { id: 'Prompt', label: 'Text Prompt', icon: '💬', desc: 'A text prompt for writing scripts, descriptions, concepts.' },
+  { id: 'Image',   label: 'Image Prompt',    icon: '🖼️', desc: 'A prompt for AI image generation — Midjourney, DALL·E, Flux, etc.' },
+  { id: 'GIF',     label: 'GIF / Loop',      icon: '🔄', desc: 'A short looping animation prompt for LTX Video, Kling, etc.' },
+  { id: 'Prompt',  label: 'Text Prompt',     icon: '💬', desc: 'A text prompt for writing scripts, descriptions, concepts.' },
 ]
 
 export default function SubmitPromptForm() {
@@ -70,7 +72,6 @@ export default function SubmitPromptForm() {
   const [step, setStep] = useState(0)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
   const [form, setForm] = useState({
     type: 'AI Video',
@@ -82,8 +83,7 @@ export default function SubmitPromptForm() {
     tags: [],
     isFree: true,
     price: '',
-    mediaFile: null,
-    mediaPreview: null,
+    preview_url: '',
   })
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }))
@@ -106,21 +106,6 @@ export default function SubmitPromptForm() {
     setError(null)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { navigate('/login'); return }
-
-    let preview_url = null
-    if (form.mediaFile) {
-      setUploading(true)
-      const ext = form.mediaFile.name.split('.').pop()
-      const filePath = `${session.user.id}/${Date.now()}.${ext}`
-      const { error: uploadErr } = await supabase.storage
-        .from('prompt-media')
-        .upload(filePath, form.mediaFile, { upsert: true })
-      if (uploadErr) { setError(uploadErr.message); setSubmitting(false); setUploading(false); return }
-      const { data: { publicUrl } } = supabase.storage.from('prompt-media').getPublicUrl(filePath)
-      preview_url = publicUrl
-      setUploading(false)
-    }
-
     const { error: err } = await supabase.from('prompts').insert({
       title: form.title,
       description: form.description,
@@ -133,8 +118,8 @@ export default function SubmitPromptForm() {
       is_free: form.isFree,
       is_published: true,
       author_id: session.user.id,
-      preview_url,
-      thumbnail_url: preview_url,
+      preview_url: form.preview_url || null,
+      thumbnail_url: form.preview_url || null,
     })
     setSubmitting(false)
     if (err) { setError(err.message); return }
@@ -155,7 +140,7 @@ export default function SubmitPromptForm() {
           {t('submit.viewMarketplace')}
         </button>
         <button
-          onClick={() => { setSubmitted(false); setStep(0); setForm({ type: 'AI Video', title: '', description: '', category: '', models: [], content: '', tags: [], isFree: true, price: '', mediaFile: null, mediaPreview: null }) }}
+          onClick={() => { setSubmitted(false); setStep(0); setForm({ type: 'AI Video', title: '', description: '', category: '', models: [], content: '', tags: [], isFree: true, price: '', preview_url: '' }) }}
           className="w-full mt-2 text-sm text-violet-400 font-medium hover:underline"
         >
           {t('submit.submitAnother')}
@@ -249,41 +234,6 @@ export default function SubmitPromptForm() {
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none placeholder-gray-600"
               />
             </div>
-            {/* Media Upload */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-gray-400">Preview Video / Image <span className="text-gray-600 font-normal">(optional)</span></label>
-              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-700 rounded-xl p-6 cursor-pointer hover:border-violet-500 transition-colors bg-gray-900/50">
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={e => {
-                    const file = e.target.files[0]
-                    if (!file) return
-                    setForm(f => ({ ...f, mediaFile: file, mediaPreview: URL.createObjectURL(file) }))
-                  }}
-                />
-                {form.mediaPreview ? (
-                  form.mediaFile?.type?.startsWith('video') ? (
-                    <video src={form.mediaPreview} className="w-full max-h-40 rounded-lg object-cover" muted />
-                  ) : (
-                    <img src={form.mediaPreview} className="w-full max-h-40 rounded-lg object-cover" alt="preview" />
-                  )
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                    <span className="text-sm text-gray-500">Click to upload image or video</span>
-                    <span className="text-xs text-gray-600">Max 50MB · image or video</span>
-                  </>
-                )}
-              </label>
-              {form.mediaPreview && (
-                <button onClick={() => setForm(f => ({ ...f, mediaFile: null, mediaPreview: null }))} className="text-xs text-red-400 hover:text-red-300 self-start">
-                  Remove
-                </button>
-              )}
-            </div>
-
             <div>
               <label className="text-xs font-semibold text-gray-400 block mb-1.5">{t('submit.step1.categoryLabel')} <span className="text-rose-400">*</span></label>
               <div className="flex flex-wrap gap-2">
@@ -353,18 +303,18 @@ export default function SubmitPromptForm() {
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none font-mono leading-relaxed placeholder-gray-600"
               />
             </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Preview Media URL <span className="text-gray-600">(mp4, webm, mov or image)</span></label>
+              <input
+                value={form.preview_url}
+                onChange={e => update('preview_url', e.target.value)}
+                placeholder="https://... paste a video or image URL for the card thumbnail"
+                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-600"
+              />
+            </div>
           </div>
         )}
 
-          <div>
-            <label className="text-xs font-semibold text-gray-400 block mb-1.5">Preview Media URL <span className="text-gray-600">(mp4, webm, mov or image)</span></label>
-            <input
-              value={form.preview_url}
-              onChange={e => update('preview_url', e.target.value)}
-              placeholder="https://... paste a video or image URL for the card thumbnail"
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-600"
-            />
-          </div>
         {/* Step 3: Pricing */}
         {step === 3 && (
           <div className="space-y-5">
@@ -451,16 +401,16 @@ export default function SubmitPromptForm() {
           ) : (
             <button
               onClick={submit}
-              disabled={submitting || uploading}
+              disabled={submitting}
               className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3 rounded-xl text-sm hover:opacity-90 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
             >
-              {(submitting || uploading) ? (
+              {submitting ? (
                 <>
                   <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  {uploading ? 'Uploading media…' : t('submit.publishing')}
+                  {t('submit.publishing')}
                 </>
               ) : t('submit.publish')}
             </button>
