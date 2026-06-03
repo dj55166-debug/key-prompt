@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Elements } from '@stripe/react-stripe-js'
-import { stripePromise } from '../lib/stripe'
+import { stripePromise } from '../lib/stripe'h
 import { supabase } from '../lib/supabase'
 import { TOOL_COLORS } from '../lib/constants'
 import CheckoutForm from '../components/CheckoutForm'
@@ -177,6 +177,7 @@ export default function PromptDetail({ user }) {
     if (!user) { navigate('/login'); return }
     setCheckoutError(null)
     setCheckoutLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment-intent`,
@@ -184,12 +185,12 @@ export default function PromptDetail({ user }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            promptId: prompt.id,
-            amount: prompt.price,
-            authorId: prompt.author_id,
+            prompt_id: prompt.id,
+            amount: Math.round((prompt.price || 0) * 100),
+            author_id: prompt.author_id,
           }),
         }
       )
