@@ -218,18 +218,35 @@ export default function CreatorProfile({ user }) {
                 className="w-20 h-20 rounded-2xl object-cover border-4 border-gray-950 shadow-xl"
               />
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-black border-4 border-gray-950 shadow-xl">
-                {initials}
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center border-4 border-gray-950 shadow-xl">
+                <span className="text-2xl font-black text-white">{initials}</span>
               </div>
             )}
-            {profile.is_verified && (
-              <div className="absolute -bottom-1 -end-1 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center border-2 border-gray-950">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-3 h-3">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+            {/* Camera icon overlay for profile owner */}
+            {user?.id === profile.id && (
+              <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-6 h-6">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
                 </svg>
-              </div>
-            )}
-          </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    const ext = file.name.split('.').pop()
+                    const path = `${profile.id}/avatar.${ext}`
+                    const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+                    if (uploadErr) { alert(uploadErr.message); return }
+                    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+                    const { error: updateErr } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
+                    if (!updateErr) setProfile(p => ({ ...p, avatar_url: publicUrl + '?t=' + Date.now() }))
+                  }}
+                />
+              </label>
+            )}          </div>
           <div className="flex gap-2 mb-1">
             {user?.id !== profile.id && (
               <button
