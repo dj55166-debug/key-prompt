@@ -81,6 +81,7 @@ export default function SubmitPromptForm() {
     tags: [],
     isFree: true,
     price: '',
+    preview_url: '',
   })
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }))
@@ -115,7 +116,9 @@ export default function SubmitPromptForm() {
       is_free: form.isFree,
       is_published: true,
       author_id: session.user.id,
-    })
+      author_id: session.user.id,
+      preview_url: form.preview_url || null,
+      thumbnail_url: form.preview_url || null,
     setSubmitting(false)
     if (err) { setError(err.message); return }
     setSubmitted(true)
@@ -301,6 +304,15 @@ export default function SubmitPromptForm() {
           </div>
         )}
 
+          <div>
+            <label className="text-xs font-semibold text-gray-400 block mb-1.5">Preview Media URL <span className="text-gray-600">(mp4, webm, mov or image)</span></label>
+            <input
+              value={form.preview_url}
+              onChange={e => update('preview_url', e.target.value)}
+              placeholder="https://... paste a video or image URL for the card thumbnail"
+              className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-600"
+            />
+          </div>
         {/* Step 3: Pricing */}
         {step === 3 && (
           <div className="space-y-5">
