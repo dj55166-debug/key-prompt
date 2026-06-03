@@ -19,6 +19,10 @@ export default function PromptCard({ prompt, liked, saved, onLike, onSave, onCli
   const primaryTool = tools[0]
   const isFree = parseFloat(prompt.price) === 0
 
+  // Fix: use preview_url first, fall back to thumbnail_url
+  const mediaSrc = prompt.preview_url || prompt.thumbnail_url
+  const isVideo = mediaSrc && /\.(mp4|webm|mov)$/i.test(mediaSrc)
+
   return (
     <div
       onClick={onClick}
@@ -26,13 +30,24 @@ export default function PromptCard({ prompt, liked, saved, onLike, onSave, onCli
     >
       {/* Thumbnail / banner */}
       <div className={`relative h-36 bg-gradient-to-br ${gradient} overflow-hidden flex-shrink-0`}>
-        {prompt.thumbnail_url ? (
-          <img
-            src={prompt.thumbnail_url}
-            alt={prompt.title}
-            className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-            onError={e => { e.currentTarget.style.display = 'none' }}
-          />
+        {mediaSrc ? (
+          isVideo ? (
+            <video
+              src={mediaSrc}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+            />
+          ) : (
+            <img
+              src={mediaSrc}
+              alt={prompt.title}
+              className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+              onError={e => { e.currentTarget.style.display = 'none' }}
+            />
+          )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-3">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-10 h-10 opacity-25 drop-shadow-lg">
@@ -58,54 +73,51 @@ export default function PromptCard({ prompt, liked, saved, onLike, onSave, onCli
             saved ? 'bg-violet-600/90 text-white' : 'bg-black/40 text-gray-400 hover:bg-black/70 hover:text-white'
           }`}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" className="w-4 h-4">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
           </svg>
         </button>
 
         {/* Price badge bottom-right */}
-        <div className="absolute bottom-2 end-2">
-          {isFree
-            ? <span className="text-[10px] font-bold bg-emerald-500/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">{t('common.free')}</span>
-            : <span className="text-[10px] font-bold bg-black/60 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">${parseFloat(prompt.price).toFixed(2)}</span>
-          }
-        </div>
+        {!isFree && (
+          <div className="absolute bottom-2 end-2 bg-black/70 backdrop-blur-sm text-white text-[11px] font-black px-2 py-0.5 rounded-lg">
+            ${parseFloat(prompt.price).toFixed(2)}
+          </div>
+        )}
       </div>
 
       {/* Card body */}
-      <div className="p-3 flex flex-col gap-2 flex-1">
-        <h3 className="font-bold text-white text-sm leading-snug line-clamp-2 group-hover:text-violet-300 transition-colors">
-          {prompt.title}
-        </h3>
+      <div className="p-3 flex flex-col flex-1 gap-1.5">
+        <h3 className="text-sm font-bold text-white leading-snug line-clamp-2">{prompt.title}</h3>
+        {prompt.description && (
+          <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{prompt.description}</p>
+        )}
 
-        <p className="text-xs text-gray-500 line-clamp-1">{prompt.description}</p>
-
-        <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-800">
-          {/* Creator */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-5 h-5 rounded-full bg-violet-900/60 text-violet-300 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-              {initials}
-            </div>
-            <span className="text-xs text-gray-500 truncate">{username}</span>
+        {/* Author row */}
+        <div className="flex items-center justify-between mt-auto pt-2">
+          <div className="flex items-center gap-1.5">
+            {prompt.author?.avatar_url ? (
+              <img src={prompt.author.avatar_url} alt={username} className="w-5 h-5 rounded-full object-cover" />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+                <span className="text-[8px] font-bold text-white">{initials}</span>
+              </div>
+            )}
+            <span className="text-xs text-gray-500 font-medium">{username}</span>
           </div>
-
-          {/* Stats */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[11px] text-gray-600 flex items-center gap-0.5">
+          <div className="flex items-center gap-2.5 text-gray-600">
+            <span className="flex items-center gap-0.5 text-[11px]">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
               </svg>
-              {prompt.sales_count || 0}
+              {prompt.comments_count ?? 0}
             </span>
-            <button
-              onClick={e => { e.stopPropagation(); onLike(prompt.id) }}
-              className={`flex items-center gap-0.5 text-[11px] transition-colors ${liked ? 'text-rose-400' : 'text-gray-600 hover:text-rose-400'}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" className="w-3.5 h-3.5">
+            <span className="flex items-center gap-0.5 text-[11px]">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-3 h-3">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
-              {liked ? (prompt.likes_count || 0) + 1 : (prompt.likes_count || 0)}
-            </button>
+              {prompt.likes_count ?? 0}
+            </span>
           </div>
         </div>
       </div>
