@@ -31,6 +31,7 @@ export default function CreatorProfile({ user }) {
   const [activeTab, setActiveTab] = useState('all')
   const [loading, setLoading] = useState(true)
   const [followLoading, setFollowLoading] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   useEffect(() => {
     if (username) loadProfile()
@@ -99,6 +100,21 @@ export default function CreatorProfile({ user }) {
     ])
     setLikedIds(new Set((likesResult.data || []).map(r => r.prompt_id)))
     setSavedIds(new Set((savedResult.data || []).map(r => r.prompt_id)))
+  }
+
+  const uploadAvatar = async (file) => {
+    if (!file || !user || user.id !== profile.id) return
+    setAvatarUploading(true)
+    const ext = file.name.split('.').pop()
+    const filePath = `${user.id}/avatar.${ext}`
+    const { error: uploadErr } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, { upsert: true })
+    if (uploadErr) { setAvatarUploading(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+    setProfile(p => ({ ...p, avatar_url: publicUrl }))
+    setAvatarUploading(false)
   }
 
   const handleFollow = async () => {
@@ -222,31 +238,35 @@ export default function CreatorProfile({ user }) {
                 <span className="text-2xl font-black text-white">{initials}</span>
               </div>
             )}
-            {/* Camera icon overlay for profile owner */}
-            {user?.id === profile.id && (
+            {user?.id === profile?.id && (
               <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-6 h-6">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-                </svg>
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    const ext = file.name.split('.').pop()
-                    const path = `${profile.id}/avatar.${ext}`
-                    const { error: uploadErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-                    if (uploadErr) { alert(uploadErr.message); return }
-                    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-                    const { error: updateErr } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', profile.id)
-                    if (!updateErr) setProfile(p => ({ ...p, avatar_url: publicUrl + '?t=' + Date.now() }))
-                  }}
+                  onChange={e => { const f = e.target.files[0]; if (f) uploadAvatar(f) }}
                 />
+                {avatarUploading ? (
+                  <svg className="animate-spin w-5 h-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                  </svg>
+                )}
               </label>
-            )}          </div>
+            )}
+            {profile.is_verified && (
+              <div className="absolute -bottom-1 -end-1 w-6 h-6 bg-violet-500 rounded-full flex items-center justify-center border-2 border-gray-950">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" className="w-3 h-3">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+            )}
+          </div>
           <div className="flex gap-2 mb-1">
             {user?.id !== profile.id && (
               <button

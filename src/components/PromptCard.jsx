@@ -19,9 +19,8 @@ export default function PromptCard({ prompt, liked, saved, onLike, onSave, onCli
   const primaryTool = tools[0]
   const isFree = parseFloat(prompt.price) === 0
 
-  // Fix: use preview_url first, fall back to thumbnail_url
   const mediaSrc = prompt.preview_url || prompt.thumbnail_url
-  const isVideo = mediaSrc && /\.(mp4|webm|mov)$/i.test(mediaSrc)
+  const isVideo = mediaSrc && /\.(mp4|webm|mov|ogg)(\?|$)/i.test(mediaSrc)
 
   return (
     <div
@@ -34,11 +33,9 @@ export default function PromptCard({ prompt, liked, saved, onLike, onSave, onCli
           isVideo ? (
             <video
               src={mediaSrc}
-              autoPlay
-              muted
-              loop
-              playsInline
+              autoPlay muted loop playsInline
               className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+              onError={e => { e.currentTarget.style.display = 'none' }}
             />
           ) : (
             <img

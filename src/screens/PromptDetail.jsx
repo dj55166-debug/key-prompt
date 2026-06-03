@@ -178,18 +178,20 @@ export default function PromptDetail({ user }) {
     setCheckoutError(null)
     setCheckoutLoading(true)
     const { data: { session } } = await supabase.auth.getSession()
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xwcrzedgekurwoykbcys.supabase.co'
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment-intent`,
+        `${supabaseUrl}/functions/v1/create-payment-intent`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
+            Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             prompt_id: prompt.id,
-            amount: Math.round((prompt.price || 0) * 100),
+            amount: Math.round(parseFloat(prompt.price || 0) * 100),
             author_id: prompt.author_id,
           }),
         }
