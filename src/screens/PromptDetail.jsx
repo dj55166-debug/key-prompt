@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Elements } from '@stripe/react-stripe-js'
-import { stripePromise } from '../lib/stripe'h
+import { stripePromise } from '../lib/stripe'
 import { supabase } from '../lib/supabase'
 import { TOOL_COLORS } from '../lib/constants'
 import CheckoutForm from '../components/CheckoutForm'
