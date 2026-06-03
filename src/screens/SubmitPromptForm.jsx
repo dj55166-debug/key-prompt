@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
@@ -69,10 +69,18 @@ const VIDEO_TYPES = [
 export default function SubmitPromptForm() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const fileInputRef = useRef(null)
+
   const [step, setStep] = useState(0)
   const [submitted, setSubmitted] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  const [mediaFile, setMediaFile] = useState(null)
+  const [mediaPreview, setMediaPreview] = useState(null)
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const [mediaUploadProgress, setMediaUploadProgress] = useState(0)
+
   const [form, setForm] = useState({
     type: 'AI Video',
     title: '',
@@ -100,30 +108,84 @@ export default function SubmitPromptForm() {
   const next = () => { if (validateStep()) setStep(s => Math.min(s + 1, 3)) }
   const back = () => setStep(s => Math.max(s - 1, 0))
 
+  const handleFileSelect = async (file) => {
+    if (!file) return
+    const isVideo = file.type.startsWith('video/')
+    const isImage = file.type.startsWith('image/')
+    if (!isVideo && !isImage) {
+      setError('Please select a video (mp4, webm, mov) or image (jpg, png, gif, webp) file.')
+      return
+    }
+    if (file.size > 52428800) {
+      setError('File is too large. Maximum size is 50MB.')
+      return
+    }
+    setError(null)
+    setMediaFile(file)
+    const localUrl = URL.createObjectURL(file)
+    setMediaPreview({ url: localUrl, isVideo })
+  }
+
+  const uploadMediaToStorage = async () => {
+    if (!mediaFile) return null
+    setMediaUploading(true)
+    setMediaUploadProgress(0)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not logged in')
+      const ext = mediaFile.name.split('.').pop().toLowerCase()
+      const fileName = `${session.user.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('prompt-media')
+        .upload(fileName, mediaFile, { upsert: true, contentType: mediaFile.type })
+      if (uploadErr) throw uploadErr
+      const { data: { publicUrl } } = supabase.storage.from('prompt-media').getPublicUrl(fileName)
+      setMediaUploadProgress(100)
+      return publicUrl
+    } catch (e) {
+      setError('Upload failed: ' + (e?.message || 'Unknown error'))
+      return null
+    } finally {
+      setMediaUploading(false)
+    }
+  }
+
   const submit = async () => {
     if (!validateStep()) return
     setSubmitting(true)
     setError(null)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { navigate('/login'); return }
-    const { error: err } = await supabase.from('prompts').insert({
-      title: form.title,
-      description: form.description,
-      content: form.content,
-      type: form.type,
-      category: form.category,
-      tags: form.tags,
-      ai_models: form.models,
-      price: form.isFree ? 0 : parseFloat(form.price),
-      is_free: form.isFree,
-      is_published: true,
-      author_id: session.user.id,
-      preview_url: form.preview_url || null,
-      thumbnail_url: form.preview_url || null,
-    })
-    setSubmitting(false)
-    if (err) { setError(err.message); return }
-    setSubmitted(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { navigate('/login'); return }
+
+      let finalPreviewUrl = form.preview_url || null
+      if (mediaFile) {
+        const uploadedUrl = await uploadMediaToStorage()
+        if (!uploadedUrl) { setSubmitting(false); return }
+        finalPreviewUrl = uploadedUrl
+      }
+
+      const { error: err } = await supabase.from('prompts').insert({
+        title: form.title,
+        description: form.description,
+        content: form.content,
+        type: form.type,
+        category: form.category,
+        tags: form.tags,
+        ai_models: form.models,
+        price: form.isFree ? 0 : parseFloat(form.price),
+        is_free: form.isFree,
+        is_published: true,
+        author_id: session.user.id,
+        preview_url: finalPreviewUrl,
+        thumbnail_url: finalPreviewUrl,
+      })
+
+      if (err) { setError(err.message); return }
+      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) return (
@@ -140,7 +202,11 @@ export default function SubmitPromptForm() {
           {t('submit.viewMarketplace')}
         </button>
         <button
-          onClick={() => { setSubmitted(false); setStep(0); setForm({ type: 'AI Video', title: '', description: '', category: '', models: [], content: '', tags: [], isFree: true, price: '', preview_url: '' }) }}
+          onClick={() => {
+            setSubmitted(false); setStep(0)
+            setForm({ type: 'AI Video', title: '', description: '', category: '', models: [], content: '', tags: [], isFree: true, price: '', preview_url: '' })
+            setMediaFile(null); setMediaPreview(null)
+          }}
           className="w-full mt-2 text-sm text-violet-400 font-medium hover:underline"
         >
           {t('submit.submitAnother')}
@@ -303,14 +369,81 @@ export default function SubmitPromptForm() {
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 resize-none font-mono leading-relaxed placeholder-gray-600"
               />
             </div>
+
+            {/* ── Media Upload ── */}
             <div>
-              <label className="text-xs font-semibold text-gray-400 block mb-1.5">Preview Media URL <span className="text-gray-600">(mp4, webm, mov or image)</span></label>
+              <label className="text-xs font-semibold text-gray-400 block mb-2">
+                Preview Media <span className="text-gray-600 font-normal">(video or image shown on the card — optional)</span>
+              </label>
+
+              {mediaPreview && (
+                <div className="mb-3 relative rounded-xl overflow-hidden bg-gray-900 border border-gray-700">
+                  {mediaPreview.isVideo ? (
+                    <video
+                      src={mediaPreview.url}
+                      controls
+                      className="w-full max-h-48 object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={mediaPreview.url}
+                      alt="Preview"
+                      className="w-full max-h-48 object-cover"
+                    />
+                  )}
+                  <button
+                    onClick={() => { setMediaFile(null); setMediaPreview(null); update('preview_url', '') }}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black text-sm font-bold"
+                  >
+                    ×
+                  </button>
+                  <div className="px-3 py-2 text-xs text-gray-400 truncate">{mediaFile?.name}</div>
+                </div>
+              )}
+
+              {!mediaPreview && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-700 hover:border-violet-500 rounded-xl py-8 flex flex-col items-center gap-3 text-gray-500 hover:text-violet-400 transition-all group"
+                >
+                  <div className="w-12 h-12 bg-gray-800 group-hover:bg-violet-900/30 rounded-xl flex items-center justify-center transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                    </svg>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-semibold">Click to upload video or image</p>
+                    <p className="text-xs mt-1">MP4, WebM, MOV, JPG, PNG, GIF, WebP · Max 50MB</p>
+                  </div>
+                </button>
+              )}
+
               <input
-                value={form.preview_url}
-                onChange={e => update('preview_url', e.target.value)}
-                placeholder="https://... paste a video or image URL for the card thumbnail"
-                className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 placeholder-gray-600"
+                ref={fileInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,video/ogg,image/jpeg,image/png,image/gif,image/webp"
+                className="hidden"
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
               />
+
+              {mediaUploading && (
+                <div className="mt-2">
+                  <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-violet-500 rounded-full transition-all duration-300"
+                      style={{ width: `${mediaUploadProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-violet-400 mt-1 text-center">Uploading...</p>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-2 bg-rose-900/30 border border-rose-700/50 rounded-xl p-3">
+                  <p className="text-xs text-rose-400">{error}</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -368,11 +501,12 @@ export default function SubmitPromptForm() {
                 [t('submit.step3.typeLabel'), form.type],
                 [t('submit.step3.titleLabel'), form.title || '—'],
                 [t('submit.step3.categoryLabel'), form.category || '—'],
+                ['Media', mediaFile ? mediaFile.name : '—'],
                 [t('submit.step3.priceLabel2'), form.isFree ? t('common.free') : form.price ? `$${form.price}` : '—'],
               ].map(([l, v]) => (
                 <div key={l} className="flex justify-between">
                   <span className="text-xs text-gray-600">{l}</span>
-                  <span className="text-xs font-medium text-gray-300">{v}</span>
+                  <span className="text-xs font-medium text-gray-300 truncate max-w-[60%] text-right">{v}</span>
                 </div>
               ))}
             </div>
@@ -401,7 +535,7 @@ export default function SubmitPromptForm() {
           ) : (
             <button
               onClick={submit}
-              disabled={submitting}
+              disabled={submitting || mediaUploading}
               className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3 rounded-xl text-sm hover:opacity-90 disabled:opacity-60 transition-all flex items-center justify-center gap-2"
             >
               {submitting ? (
