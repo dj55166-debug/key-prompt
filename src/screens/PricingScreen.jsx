@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { stripePromise } from '../lib/stripe'
-import { supabase } from '../lib/supabase'h
+import { supabase } from '../lib/supabase'
 
 
 // Hardcoded fallbacks guard against BOM-corrupted env vars baked into the Vercel build
