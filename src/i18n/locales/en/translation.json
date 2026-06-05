@@ -54,7 +54,8 @@
     "savedToLibrary": "Saved to your library automatically.",
     "uses": "{{count}} uses",
     "loading": "Loading prompt...",
-    "notFound": "Prompt not found."
+    "notFound": "Prompt not found.",
+    "remix": "Remix"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -128,7 +129,35 @@
     },
     "browse": "Browse prompts",
     "submitPrompt": "Submit a prompt",
-    "loading": "Loading library..."
+    "loading": "Loading library...",
+    "settings": "Settings",
+    "contactSupport": "Contact & Support",
+    "contactDesc": "Have questions? Reach out to us",
+    "sendMessage": "Send Message",
+    "deleteAccount": "Delete Account",
+    "deleteDesc": "Permanently delete your account and all data",
+    "deleteWarning": "This action cannot be undone",
+    "contactForm": {
+      "title": "Contact Us",
+      "email": "Your email",
+      "subject": "Subject",
+      "message": "Message",
+      "send": "Send",
+      "sending": "Sending...",
+      "successTitle": "Message sent!",
+      "successDesc": "We'll get back to you soon."
+    },
+    "deleteAccountModal": {
+      "title": "Delete Account?",
+      "warning": "This will permanently delete your account and all associated data. This action cannot be undone.",
+      "confirmLabel": "Enter your password to confirm",
+      "password": "Password",
+      "cancel": "Cancel",
+      "delete": "Delete My Account",
+      "deleting": "Deleting...",
+      "successTitle": "Account deleted",
+      "successDesc": "Your account has been permanently deleted."
+    }
   },
   "creator": {
     "follow": "Follow",
