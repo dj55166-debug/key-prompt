@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { loadStripe } from '@stripe/stripe-js'
-import { supabase } from '../lib/supabase'
+import { stripePromise } from '../lib/stripe'
+import { supabase } from '../lib/supabase'h
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
 
 // Hardcoded fallbacks guard against BOM-corrupted env vars baked into the Vercel build
 const PRICE_IDS = {
@@ -24,7 +23,7 @@ export default function PricingScreen({ user }) {
   const yearlyMonthly = '€4.17'
 
   const supabaseUrl = 'https://xwcrzedgekurwoykbcys.supabase.co'
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh3Y3J6ZWRnZWt1cndveWtiY3lzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MzI0ODUsImV4cCI6MjA5NTEwODQ4NX0.JaZ9iOC85C1dZFn70ncFgxaGEf3gX9NVvHbAzhqQv9s'
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
   const handleUpgrade = async () => {
     if (!user) { navigate('/login'); return }
