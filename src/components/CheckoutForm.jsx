@@ -33,38 +33,49 @@ export default function CheckoutForm({ prompt, user, onSuccess }) {
       return
     }
 
-    if (paymentIntent && paymentIntent.status === 'succeeded') {
-      await supabase.from('purchases').insert({
-        buyer_id: user.id,
-        prompt_id: prompt.id,
-        amount_paid: prompt.price,
-        stripe_payment_id: paymentIntent.id,
-        status: 'completed'
-      })
-      onSuccess()
+    if (!paymentIntent) {
+      setError('Payment intent not created. Please try again.')
+      setLoading(false)
+      return
     }
 
-    setLoading(false)
+    if (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing') {
+      try {
+        const { error: insertErr } = await supabase.from('purchases').insert({
+          buyer_id: user.id,
+          prompt_id: prompt.id,
+          amount_paid: prompt.price,
+          stripe_payment_id: paymentIntent.id,
+          status: paymentIntent.status === 'succeeded' ? 'completed' : 'pending'
+        })
+        if (insertErr) {
+          setError('Payment recorded but purchase record failed. Contact support.')
+          setLoading(false)
+          return
+        }
+        onSuccess()
+      } catch (err) {
+        setError('Payment succeeded but database error occurred. Contact support.')
+        setLoading(false)
+        return
+      }
+    } else {
+      setError(`Payment status: ${paymentIntent.status}. Please check your account.`)
+      setLoading(false)
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <PaymentElement />
-      {error && (
-        <div className="bg-rose-900/30 border border-rose-700/50 rounded-xl p-3">
-          <p className="text-xs text-rose-400">{error}</p>
-        </div>
-      )}
+      {error && <div className="text-red-500 text-sm">{error}</div>}
       <button
         type="submit"
         disabled={!stripe || loading}
-        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3.5 rounded-xl disabled:opacity-50 transition-all text-sm"
+        className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? 'Processing...' : `Pay $${prompt.price}`}
+        {loading ? 'Processing...' : 'Pay now'}
       </button>
-      <p className="text-center text-xs text-gray-400">
-        Secured by Stripe · Instant access after payment
-      </p>
     </form>
   )
 }
